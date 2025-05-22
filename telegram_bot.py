@@ -8,26 +8,32 @@ from bot_logic import get_response
 
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 if not TOKEN:
-    print("TELEGRAM_TOKEN не задан. Задайте переменную окружения TELEGRAM_TOKEN.")
+    print("TELEGRAM_TOKEN не задан.")
     exit(1)
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Привет! Я Альфред, твой бот-собеседник. Спрашивай что угодно!')
-
-def help_command(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Напиши мне сообщение, а я постараюсь ответить :)')
+    context.user_data.clear()
 
 def handle_message(update: Update, context: CallbackContext) -> None:
-    user_text = update.message.text
-    # Теперь get_response возвращает только строку
-    response = get_response(user_text)
-    update.message.reply_text(response)
+    text = update.message.text
+
+    # —————— Обучение на лету: если ждали teach-пароля ——————
+    if 'awaiting_teach' in context.user_data:
+        key = context.user_data.pop('awaiting_teach')
+        # сохраняем пользовательский ответ
+        context.user_data.setdefault('custom_answers', {})[key] = text
+        update.message.reply_text("Спасибо! Я запомнил(а) твой ответ.")
+        return
+
+    # обычная логика
+    resp = get_response(text, context.user_data)
+    update.message.reply_text(resp)
 
 def main():
     updater = Updater(TOKEN)
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("help", help_command))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     updater.start_polling()
     updater.idle()
