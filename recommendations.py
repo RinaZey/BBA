@@ -1,6 +1,7 @@
 # recommendations.py
 
 import random
+import re
 
 # Небольшие списки для примера
 MOVIE_RECS = {
@@ -290,22 +291,38 @@ SERIES_RECS = {
     ]
 }
 
-
 def recommend(category: str, genre: str) -> str:
     """
-    Возвращает 1–2 случайных рекомендации по заданной категории (movie/music/game/series)
-    и жанру. Если жанр не найден — уведомляет об этом.
+    Возвращает 1–2 случайных рекомендации по заданной категории
+    (movie/music/game/series) и жанру.
+    Если жанр не найден — уведомляет об этом.
     """
+    # очистка ответа пользователя от «да,», «ага,», «конечно» и перевод в lower()
+    genre_clean = re.sub(
+        r'^(да[, ]+|ага[, ]+|конечно[, ]+)',
+        '', genre.strip(),
+        flags=re.IGNORECASE
+    ).lower().strip()
+
+    # словарь по категориям
     data = {
         "movie": MOVIE_RECS,
         "music": MUSIC_RECS,
-        "game": GAME_RECS,
+        "game":   GAME_RECS,
         "series": SERIES_RECS
     }.get(category, {})
 
-    lst = data.get(genre.lower())
+    # если вообще не указал жанр
+    if not genre_clean:
+        available = ", ".join(sorted(data.keys()))
+        return f"Какой жанр тебе интересен? Доступные жанры: {available}."
+
+    # ищем список по жанру
+    lst = data.get(genre_clean)
     if not lst:
-        available = ", ".join(data.keys())
-        return f"Извини, не знаю таких рекомендаций в жанре «{genre}». Попробуй один из: {available}."
+        available = ", ".join(sorted(data.keys()))
+        return f"Не распознал жанр «{genre_clean}». Доступные: {available}."
+
+    # выбираем 1–2 рекомендации
     picks = random.sample(lst, min(2, len(lst)))
-    return f"Вот что я могу порекомендовать в жанре «{genre}»: " + "; ".join(picks)
+    return f"Вот что я могу порекомендовать в жанре «{genre_clean}»: " + "; ".join(picks)

@@ -1,5 +1,8 @@
 python-telegram-bot>=13.0
-natasha>=1.1.0
-scikit-learn>=1.0
-numpy>=1.18
-python-Levenshtein>=0.12
+requests
+pytz
+numexpr
+apscheduler
+scikit-learn
+nltk
+numpy
