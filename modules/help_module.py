@@ -8,7 +8,6 @@ def cmd_commands(update, context):
         "/tictactoe — игра крестики-нолики\n"
         "/catalog — посмотреть каталог\n"
         "/remind <м> <текст> — напомнить через м минут\n"
-        "/weather [город] — узнать погоду\n"
         "...и многое другое!"
     )
     update.message.reply_text(text)
