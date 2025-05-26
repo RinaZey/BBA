@@ -6,38 +6,47 @@ from modules.tictactoe  import TicTacToe
 from nlp_utils          import clean_text, lemmatize_text, correct_spelling
 from intent_classifier  import IntentClassifier
 from sentiment          import get_sentiment
-from recommendations    import recommend          # ваш модуль с рекомендациями
+from recommendations    import recommend
+from dialogue_retrieval import DialogueRetriever      # ← NEW!
+
 # ──────────────────────────────────────────────────────────────
 # 1) данные и модели
 # ──────────────────────────────────────────────────────────────
 BASE_DIR            = Path(__file__).parent
-DATA_DIR            = BASE_DIR / 'data'
-CUSTOM_INTENTS_FILE = DATA_DIR / 'custom_intents.json'
-CATALOG_FILE        = DATA_DIR / 'product_catalog.json'
+DATA_DIR            = BASE_DIR / "data"
+CUSTOM_INTENTS_FILE = DATA_DIR / "custom_intents.json"
+CATALOG_FILE        = DATA_DIR / "product_catalog.json"
+DIALOGUES_FILE      = DATA_DIR / "dialogues.txt"      # ← путь к корпусу диалогов
 
-with open(DATA_DIR / 'intents_dataset.json', encoding='utf-8') as f:
+with open(DATA_DIR / "intents_dataset.json", encoding="utf-8") as f:
     INTENTS = json.load(f)
 if CUSTOM_INTENTS_FILE.exists():
-    INTENTS.update(json.loads(CUSTOM_INTENTS_FILE.read_text('utf-8')))
+    INTENTS.update(json.loads(CUSTOM_INTENTS_FILE.read_text("utf-8")))
 
-with open(CATALOG_FILE, encoding='utf-8') as f:
+with open(CATALOG_FILE, encoding="utf-8") as f:
     PRODUCT_CATALOG = json.load(f)
 
-clf = IntentClassifier(DATA_DIR)
-clf.load()
+# ── модели ──
+clf        = IntentClassifier(DATA_DIR);  clf.load()
+retriever  = DialogueRetriever(str(DIALOGUES_FILE))   # ← NEW!
 
+# ── словарь для spell-check ──
 DICTIONARY = {
     ex.lower()
     for data in INTENTS.values() if isinstance(data, dict)
-    for ex in data.get('examples', [])
+    for ex in data.get("examples", [])
 }
+# добавляем слова из диалогов, чтобы не «чинить» их:
+if DIALOGUES_FILE.exists():
+    for line in DIALOGUES_FILE.read_text("utf-8").splitlines():
+        DICTIONARY.update(map(str.lower, re.findall(r"[А-Яа-яA-Za-zё]+", line)))
 
 # ──────────────────────────────────────────────────────────────
 def _save_custom_intents(data: dict):
     DATA_DIR.mkdir(exist_ok=True)
     CUSTOM_INTENTS_FILE.write_text(
         json.dumps(data, ensure_ascii=False, indent=4),
-        encoding='utf-8'
+        encoding="utf-8"
     )
 
 # ──────────────────────────────────────────────────────────────
@@ -45,33 +54,31 @@ def get_response(text: str, user_data: dict, history: deque) -> str:
     """
     Главная логика ответа бота.
     """
-    # —── краткие ссылки на память пользователя —──
-    prefs        = user_data.setdefault('preferences', {})
-    custom_ans   = user_data.setdefault('custom_answers', {})
-    last_int     = user_data.get('last_intent')
-    asked_fup    = user_data.get('asked_followup', False)
-    last_bot     = user_data.get('last_bot')
-    waiting_teach = user_data.get('awaiting_teach', False)
+    prefs        = user_data.setdefault("preferences", {})
+    custom_ans   = user_data.setdefault("custom_answers", {})
+    last_int     = user_data.get("last_intent")
+    asked_fup    = user_data.get("asked_followup", False)
+    last_bot     = user_data.get("last_bot")
+    waiting_teach = user_data.get("awaiting_teach", False)
 
     low       = text.strip().lower()
-    low_clean = re.sub(r'[^а-яёa-z0-9\s]', '', low)
+    low_clean = re.sub(r"[^а-яёa-z0-9\s]", "", low)
 
-    # ——— корректируем типы множеств в user_data ———
-    if not isinstance(user_data.get('asked_questions'), set):
-        user_data['asked_questions'] = set(user_data.get('asked_questions', []))
+    # гарантируем set-типы
+    if not isinstance(user_data.get("asked_questions"), set):
+        user_data["asked_questions"] = set(user_data.get("asked_questions", []))
+    if not isinstance(user_data.get("shown_products"), set):
+        user_data["shown_products"] = set(user_data.get("shown_products", []))
 
-    if not isinstance(user_data.get('shown_products'), set):
-        user_data['shown_products'] = set(user_data.get('shown_products', []))
+    AFFIRM = {"да", "ага", "ок", "окей", "конечно", "хорошо", "давай", "хочу"}
 
-    AFFIRM = {'да', 'ага', 'ок', 'окей', 'конечно', 'хорошо', 'давай', 'хочу'}
-
-    # ────────── 0. small-talk «как дела» / «как настроение» ──────────
-    if re.search(r'\bкак\s+(дел[аи]|ты)\b', low_clean):
+    # ───────────────── small-talk (как дела / настроение)
+    if re.search(r"\bкак\s+(дел[аи]|ты)\b", low_clean):
         return random.choice([
             "У меня всё отлично, спасибо! А у тебя как?",
             "Всё хорошо, работаю не покладая транзисторов 😄 А ты?"
         ])
-    if 'настроени' in low_clean:
+    if "настроени" in low_clean:
         return random.choice([
             "Настроение супер! Как твоё?",
             "Бодрое и весёлое. У тебя какое?"
@@ -110,7 +117,7 @@ def get_response(text: str, user_data: dict, history: deque) -> str:
 
     # ────────── 1. запуск рекламы ──────────
     def advert_prompt() -> str:
-        
+
         user_data['awaiting_ad_choice'] = True
         return ("Кстати, у нас в каталоге есть отличные **кровати** и **матрасы**.\n"
                 "Что тебе интереснее: кровати или матрасы?")
@@ -164,8 +171,8 @@ def get_response(text: str, user_data: dict, history: deque) -> str:
                 prod = random.choice(PRODUCT_CATALOG[cat][sub])
                 user_data['shown_products'].add(prod['name'])
                 del user_data['shopping_category']
-                return (f"Рекомендую: *{prod['name']}*\n{prod['description']}\n"
-                        f"Цена: {prod['price']} руб.\nПодробнее: {prod['link']}")
+                return (f"Рекомендую: *{prod['name']}*\n\n{prod['description']}\n\n"
+                        f"Цена: {prod['price']} руб.\n\nПодробнее: {prod['link']}")
 
     # ────────── 3b. реклама: «Ещё» ──────────
     if user_data.get('expecting_more_ads') and low in {"еще", "ещё", "еще раз", "ещё раз"}:
@@ -180,8 +187,8 @@ def get_response(text: str, user_data: dict, history: deque) -> str:
                 return "Пожалуй, это все лучшие варианты в этой категории ;)"
             prod = random.choice(rest)
             shown.add(prod['name'])
-            return (f"Ещё вариант: *{prod['name']}*\n{prod['description']}\n"
-                    f"Цена: {prod['price']} руб.\nПодробнее: {prod['link']}")
+            return (f"Ещё вариант: *{prod['name']}*\n\n{prod['description']}\n\n"
+                    f"Цена: {prod['price']} руб.\n\nПодробнее: {prod['link']}")
 
     # ────────── 4. teach-on-the-fly (ответ пользователя) ──────────
     if waiting_teach:
@@ -251,13 +258,13 @@ def get_response(text: str, user_data: dict, history: deque) -> str:
 
     # ────────── 12. sentiment-тональность ──────────
     cleaned   = clean_text(text)
-    corrected = ' '.join(correct_spelling(w, DICTIONARY) for w in cleaned.split())
+    corrected = " ".join(correct_spelling(w, DICTIONARY) for w in cleaned.split())
     lemma     = lemmatize_text(corrected)
     score     = get_sentiment(lemma)
     tone      = "Мне очень жаль, что тебе грустно. " if score < -0.2 else \
                 "Рад за тебя! "                       if score >  0.5 else ""
 
-    # ────────── 13. intent-предсказание ──────────
+    # ────────── 13. intent-predict ──────────
     intent = None
     try:
         cand = clf.predict(lemma)
@@ -273,34 +280,41 @@ def get_response(text: str, user_data: dict, history: deque) -> str:
         except Exception:
             pass
 
-    # ────────── 13a. MEDIA-интенты ──────────
+    # ──────── 13a. media-intents  (music/movie/…) ────────
     if intent in {"music", "movie", "game", "series"}:
-        user_data['last_intent']    = intent
-        user_data['asked_followup'] = True
-        user_data['awaiting_genre'] = intent
-        return INTENTS[intent]['follow_up'][0]
+        user_data["last_intent"]     = intent
+        user_data["asked_followup"]  = True
+        user_data["awaiting_genre"]  = intent
+        return INTENTS[intent]["follow_up"][0]
 
-    # ────────── 13b. обычные интенты ──────────
+    # ──────── 13b. обычные intent-ответы ────────
     if intent:
-        opts = INTENTS[intent]['responses']
+        opts = INTENTS[intent]["responses"]
         if last_bot in opts and len(opts) > 1:
             opts = [o for o in opts if o != last_bot]
         resp = random.choice(opts)
-        user_data['last_bot'] = resp
+        user_data["last_bot"] = resp
 
-        if not user_data['asked_followup']:
-            for f in INTENTS[intent].get('follow_up', []):
-                if f not in user_data['asked_questions']:
+        if not user_data["asked_followup"]:
+            for f in INTENTS[intent].get("follow_up", []):
+                if f not in user_data["asked_questions"]:
                     resp += " " + f
-                    user_data['asked_questions'].add(f)
-                    user_data['asked_followup'] = True
+                    user_data["asked_questions"].add(f)
+                    user_data["asked_followup"] = True
                     break
 
-        user_data['last_intent'] = intent
+        user_data["last_intent"] = intent
         return tone + resp
 
+    # ────────── 13c. попытка найти реплику в dialogues.txt ──────────
+    candidate = retriever.reply(lemma)            # ← метод вашего DialogueRetriever
+    if candidate:
+        user_data["last_bot"]    = candidate
+        user_data["last_intent"] = None
+        return tone + candidate
+
     # ────────── 14. Teach-fallback ──────────
-    key = re.sub(r'[^a-z0-9]', '', low_clean) or 'intent'
+    key = re.sub(r"[^a-z0-9]", "", low_clean) or "intent"
     cid = f"c{key}"
     new_i = {
         "examples":  [text],
@@ -308,10 +322,10 @@ def get_response(text: str, user_data: dict, history: deque) -> str:
     }
     data = {}
     if CUSTOM_INTENTS_FILE.exists():
-        data = json.loads(CUSTOM_INTENTS_FILE.read_text('utf-8'))
+        data = json.loads(CUSTOM_INTENTS_FILE.read_text("utf-8"))
     data[cid] = new_i
     _save_custom_intents(data)
     INTENTS[cid] = new_i
 
-    user_data['awaiting_teach'] = text
+    user_data["awaiting_teach"] = text
     return "Я пока не знаю, как на это отвечать. Подскажите, пример ответа?"
