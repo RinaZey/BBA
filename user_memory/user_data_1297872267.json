@@ -5,14 +5,14 @@
     "А какая сказка тебе больше всего нравится?"
   ],
   "shown_products": [],
-  "msgs_since_ad": 7,
+  "msgs_since_ad": 9,
   "asked_followup": true,
-  "last_ad_ts": "2025-05-27 08:36:06.183112",
-  "last_bot": "Пожалуйста.",
-  "last_intent": "thanks",
+  "last_ad_ts": "2025-05-27 09:37:48.693727",
+  "last_bot": "Отдыхайте и набирайтесь сил!",
+  "last_intent": "holiday_trip",
   "ad_offer_shown": true,
   "expecting_more_ads": false,
-  "last_ad_category": "Матрасы",
-  "last_ad_subcategory": "Детские",
+  "last_ad_category": "Кровати",
+  "last_ad_subcategory": "Двуспальные",
   "ad_offer_done": true
 }
