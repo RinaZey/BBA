@@ -1,18 +1,22 @@
 {
-  "preferences": {},
+  "preferences": {
+    "movie_genre": "комедия",
+    "favorite_цвет": "Синий"
+  },
   "custom_answers": {},
   "asked_questions": [
     "А какая сказка тебе больше всего нравится?"
   ],
   "shown_products": [],
-  "msgs_since_ad": 9,
+  "msgs_since_ad": 20,
   "asked_followup": true,
-  "last_ad_ts": "2025-05-27 09:37:48.693727",
-  "last_bot": "Отдыхайте и набирайтесь сил!",
-  "last_intent": "holiday_trip",
+  "last_ad_ts": "2025-05-31 19:42:06.889449",
+  "last_bot": "— Почему ты не спишь?\n— Чатюсь с ботом... Это судьба!",
+  "last_intent": "joke",
   "ad_offer_shown": true,
   "expecting_more_ads": false,
   "last_ad_category": "Кровати",
-  "last_ad_subcategory": "Двуспальные",
-  "ad_offer_done": true
+  "last_ad_subcategory": "Односпальные",
+  "ad_offer_done": true,
+  "expect_more": false
 }

@@ -5,7 +5,7 @@ from telegram import Update
 from telegram.ext import (Updater, CommandHandler, MessageHandler,
                           Filters, CallbackContext)
 
-from bot_logic      import get_response
+from bot_logic      import get_response, start, help_command, handle_text, handle_voice
 from file_memory    import load_history, save_history, load_user_data, save_user_data, MEM_DIR
 from modules.tictactoe import TicTacToe
 
@@ -88,6 +88,8 @@ def main() -> None:
     catalog_reg(dp); reminder_reg(dp)
 
     dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("help",  help_command))
+    dp.add_handler(MessageHandler(Filters.voice, handle_voice))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message), group=100)
 
     # выключаем webhook → можем использовать long-polling
